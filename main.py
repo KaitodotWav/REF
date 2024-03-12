@@ -1,31 +1,89 @@
-import openpyxl
+import openpyxl, random
 from thefuzz import fuzz
+
 #fuzz.token_sort_ratio("fuzzy wuzzy was a bear", "wuzzy fuzzy was a bear")
 
-dataframe = openpyxl.load_workbook("DILIMAN Google Sheeet.xlsx")
-dataframe1 = dataframe.active
+dates = {
+    1: "1-28-24",
+    2: "2-4-24",
+    3: "2-11-24",
+    4: "2-18-24",
+    5: "2-25-24",
+    6: "3-3-24",
+    7: "3-10-24"
+}
 
-def check(item):
-    save = True
-    for part in item:
-        if "," in part:
-            save = False
-    return save
-n = input("name>> ")
-collected = []
-end = 0
-for row in dataframe1.iter_rows(0, dataframe1.max_row):
-    name = row[1].value
-    c = fuzz.token_sort_ratio(name, n)
-    if c > 55:
-        collected.append(f"{c} : {name}")
-    if name == None:
-        end += 1
+class Student:
+    def __init__(self):
+        self.raw = None
+        self.name = None
+        self.index = None
+        self.row = None
+        self.relevance = None
 
-end_of_line = dataframe1.max_row - end
+    def __repr__(self):
+        if self.relevance is None:
+            return f"{self.row} - {self.name}"
+        else:
+            return f"{self.relevance} {self.row} - {self.name}"
 
-for i in range(len(collected)):
-    print(sorted(collected, reverse=True, key=lambda x: int(x.split(":")[0]))[i])
+    def add_session(self, number):
+        slots = [r.value for r in self.raw[6:18] if r.value is None]
+        choose = random.choice(slots)
+        choose = dates[number]
 
-#write new
+class DiliParser():
+    def __init__(self, data_path):
+        self.data = openpyxl.load_workbook(data_path)
+        self.dataframe = self.data.active
 
+        self.rows = []
+        self.next_row = 0
+
+    def update(self):
+        self.rows = []
+        for n, r in enumerate(self.dataframe.iter_rows(0, self.dataframe.max_row)):
+            name = r[1].value
+            if name is None:
+                continue
+            student = Student()
+            student.raw = r
+            student.name = name
+            student.index = n
+            student.row = n+1
+            self.rows.append(student)
+        self.next_row = len(self.rows)
+
+    def prompt(self, name):
+        self.update()
+        matched = []
+        for student in self.rows:
+            rate = fuzz.token_sort_ratio(name, student.name)
+            if rate < 55:
+                continue
+            student.relevance = rate
+            matched.append(student)
+        matched = sorted(matched, reverse=True, key=lambda x: int(x.relevance))
+
+        if len(matched) <= 0:
+            pass
+
+        elif len(matched) == 1:
+            self.modify(matched[0])
+            return
+
+        for i in matched:
+            if i.relevance >= 90:
+                self.modify(i)
+                break
+
+
+    def modify(self, student):
+        session = input("session: ")
+
+        student.add_session(session)
+
+if __name__ == "__main__":
+    app = DiliParser("DILIMAN Google Sheeet.xlsx")
+    n = input(">>> ")
+    app.prompt(n)
